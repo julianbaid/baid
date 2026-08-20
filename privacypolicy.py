@@ -56,6 +56,7 @@ class PrivacyPolicyGenerator:
         self.uses_ai_content_gen = False
         self.uses_ai_analytics = False
         self.ai_provider_locations = []
+        self.ai_provider_location_unconfirmed = False
         self.ai_data_processed = []
         self.ai_opt_out_available = False
         
@@ -373,19 +374,27 @@ class PrivacyPolicyGenerator:
             
             print("\n" + "-"*40)
             print("📍 AI PROVIDER LOCATIONS\n")
-            print("  (No need to name specific suppliers - just where the")
-            print("  processing takes place.)\n")
+            print("  No need to name specific suppliers - just where the")
+            print("  processing broadly takes place. This can be tricky if")
+            print("  you use several different AI tools, e.g. a standalone")
+            print("  tool you signed up for directly (like a chatbot builder)")
+            print("  AND AI features already built into other software you")
+            print("  use (like Salesforce Einstein or Microsoft Copilot).")
+            print("  If you're not sure, that's fine - select the option")
+            print("  below for that.\n")
             
             locations = [
                 ("uk", "UK-based only"),
                 ("us", "US-based"),
-                ("eu", "EU/EEA-based")
+                ("eu", "EU/EEA-based"),
+                ("unsure", "Not sure / it varies across the different AI tools we use")
             ]
             
             selected_locations = self.checkbox_selection("Where are your AI providers located?", locations,
                                                          allow_other=True, other_prompt="Please specify countries")
             
             self.ai_provider_locations = []
+            self.ai_provider_location_unconfirmed = False
             for loc in selected_locations:
                 if loc == "uk":
                     self.ai_provider_locations.append("UK")
@@ -393,6 +402,8 @@ class PrivacyPolicyGenerator:
                     self.ai_provider_locations.append("United States")
                 elif loc == "eu":
                     self.ai_provider_locations.append("EU/EEA")
+                elif loc == "unsure":
+                    self.ai_provider_location_unconfirmed = True
                 elif loc.startswith("other:"):
                     self.ai_provider_locations.append(loc.replace("other:", ""))
             
@@ -819,6 +830,13 @@ class PrivacyPolicyGenerator:
             return f"{items[0]} and {items[1]}"
         return ", ".join(items[:-1]) + f", and {items[-1]}"
 
+    def _tbc(self, description: str) -> str:
+        """
+        A clearly-marked gap to fill in, styled like an editor's note in a
+        genuine draft policy - not a sentence about the questionnaire.
+        """
+        return f"**[TO CONFIRM: {description}]**"
+
     def generate_privacy_policy(self) -> str:
         """
         Generate the privacy policy from the answers actually supplied.
@@ -855,35 +873,33 @@ class PrivacyPolicyGenerator:
                 + self._bullets(self.data_collected)
             )
         else:
-            data_collection = (
-                "The types of personal information we collect have not been "
-                "specified in the information provided to this generator."
+            data_collection = self._tbc(
+                "list the types of personal information collected"
             )
 
         if self.uses_sensitive_data:
             sensitive = self.sensitive_data_types or ["Special category data"]
             data_collection += (
                 "\n\n**Special category data**\n\n"
-                "We have indicated that we process special category data. "
-                "The categories specified are:\n\n"
+                "We also process special category data under UK GDPR "
+                "Article 9, specifically:\n\n"
                 + self._bullets(sensitive)
-                + "\n\nThe Article 9 condition supplied for this processing is: "
-                + (self.sensitive_data_basis or "Not specified")
+                + "\n\nOur Article 9 condition for processing this data is: "
+                + (self.sensitive_data_basis or self._tbc(
+                    "confirm the Article 9 condition relied on"))
                 + "."
             )
 
         if self.data_sources:
             data_collection += (
                 "\n\n**Where this information comes from**\n\n"
-                "The information supplied to this generator indicates that "
-                "personal data comes from the following sources:\n\n"
+                "We obtain your personal data from the following sources:\n\n"
                 + self._bullets(self.data_sources)
             )
         else:
             data_collection += (
                 "\n\n**Where this information comes from**\n\n"
-                "The source(s) of personal data have not been specified in "
-                "the information provided to this generator."
+                + self._tbc("describe where personal data is obtained from")
             )
 
         # ---------------- PURPOSES ----------------
@@ -894,17 +910,20 @@ class PrivacyPolicyGenerator:
                 if basis:
                     purpose_lines.append(f"- {purpose} — **lawful basis:** {basis}")
                 else:
-                    purpose_lines.append(f"- {purpose} — lawful basis not specified")
+                    purpose_lines.append(
+                        f"- {purpose} — lawful basis: "
+                        + self._tbc("confirm the Article 6 lawful basis")
+                    )
             purposes_text = (
-                "We use personal information for the following purposes. "
-                "Against each purpose we have set out the lawful basis "
-                "supplied for that processing:\n\n"
+                "We use your personal information for the following "
+                "purposes. Each purpose is listed with the lawful basis "
+                "we rely on under Article 6 of the UK GDPR:\n\n"
                 + "\n".join(purpose_lines)
             )
         else:
-            purposes_text = (
-                "The purposes for processing personal information have not "
-                "been specified in the information provided to this generator."
+            purposes_text = self._tbc(
+                "list the purposes for which personal information is processed, "
+                "with the Article 6 UK GDPR lawful basis for each"
             )
 
         # ---------------- AI ----------------
@@ -913,7 +932,7 @@ class PrivacyPolicyGenerator:
         if self.ai_use_cases:
             ai_sections.append(
                 "### How we use AI\n\n"
-                "We have indicated that we use AI for the following purposes:\n\n"
+                "We use artificial intelligence (AI) in the following ways:\n\n"
                 + self._bullets(self.ai_use_cases)
             )
 
@@ -924,108 +943,102 @@ class PrivacyPolicyGenerator:
             )
             chatbot = (
                 "### AI chatbot\n\n"
-                "Our business uses an AI-powered chatbot for customer "
-                "interactions. Information processed through the chatbot may "
-                f"include {ai_data}.\n\n"
-                "The chatbot is identified as an AI system rather than a "
-                "human member of staff."
+                "We use an AI-powered chatbot for customer interactions. "
+                f"When you use the chatbot, we may process {ai_data}.\n\n"
+                "The chatbot is an automated system rather than a human "
+                "member of staff."
             )
             if self.ai_opt_out_available:
                 chatbot += (
-                    "\n\nCustomers can opt out of AI processing where this "
-                    "option is available by contacting us."
+                    "\n\nYou can opt out of speaking with the AI chatbot "
+                    "and request a human alternative by contacting us."
                 )
             ai_sections.append(chatbot)
 
         if self.uses_ai_marketing:
+            marketing_use = self._sentence_list(
+                [x for x in self.ai_use_cases if "marketing" in x.lower()],
+                "AI-assisted marketing"
+            )
             ai_sections.append(
                 "### AI used for marketing\n\n"
-                "We use AI for marketing and/or email personalisation. "
-                "The specific AI use selected for this business is: "
-                + self._sentence_list(
-                    [x for x in self.ai_use_cases
-                     if "marketing" in x.lower()],
-                    "AI-assisted marketing"
-                )
-                + "."
+                "We use AI to support our marketing activity, including "
+                f"{marketing_use}."
             )
 
         if self.uses_profiling:
             ai_sections.append(
                 "### Profiling\n\n"
-                "We have indicated that AI is used for customer profiling "
-                "and/or behavioural analysis. This may involve analysing "
-                "information about interactions, preferences or behaviour "
-                "for the purposes described in this privacy policy."
+                "We use AI to build profiles based on your interactions, "
+                "preferences or behaviour. We use these profiles for the "
+                "purposes set out in Section 4 of this policy."
             )
 
         if self.uses_ai_content_gen:
             ai_sections.append(
                 "### AI used for content generation\n\n"
-                "We have indicated that AI is used to help generate content "
-                "(for example, website copy, product descriptions or "
-                "customer-facing text). Where this content is generated "
-                "using personal information, the categories of data involved "
-                "are set out below in this section."
+                "We use AI tools to help generate content, such as website "
+                "copy or product descriptions. Where personal information "
+                "is used as part of this process, it falls within the data "
+                "categories described in Section 3."
             )
 
         if self.uses_ai_analytics:
             ai_sections.append(
                 "### AI used for analytics and predictive analysis\n\n"
-                "We have indicated that AI is used for analytics and/or "
-                "predictive analysis. This may involve using AI tools to "
-                "identify patterns or trends in the data described in this "
-                "policy, in order to support the purposes set out in Section 4."
+                "We use AI to support analytics and to identify patterns or "
+                "trends in the data described in this policy, in support of "
+                "the purposes set out in Section 4."
             )
 
         if self.uses_automated_decisions:
             decision_text = self._bullets(
                 self.auto_decision_types,
-                "- Automated decision-making processes (specific types not supplied)"
+                "- " + self._tbc("list the types of automated decisions made")
             )
 
             automated_section = (
                 "### Automated decision-making\n\n"
-                "We have indicated that AI is used for automated "
-                "decision-making. The types of decisions supplied are:\n\n"
+                "We use AI to make automated decisions relating to:\n\n"
                 + decision_text
             )
 
             if self.auto_decision_solely_automated:
                 automated_section += (
-                    "\n\nSome of these decisions may be made **without any "
-                    "human involvement** (solely automated processing)."
+                    "\n\nSome of these decisions are made **without any "
+                    "human involvement** (solely automated processing "
+                    "within the meaning of Article 22 of the UK GDPR)."
                 )
             else:
                 automated_section += (
-                    "\n\nThe information supplied indicates that these "
-                    "decisions are not made solely by automated means "
-                    "without human involvement."
+                    "\n\nA human is involved in these decisions; they are "
+                    "not made solely by automated means."
                 )
 
             if self.auto_decision_human_review:
                 automated_section += (
-                    " If you disagree with a decision, you can request that "
-                    "a human reviews it by contacting us."
+                    " If you disagree with a decision, you can ask us to "
+                    "have it reviewed by a person, and express your point "
+                    "of view, by contacting us."
                 )
             else:
                 automated_section += (
-                    " The questionnaire does not confirm that a human review "
-                    "option is currently offered; this should be checked, as "
-                    "individuals generally have the right to request human "
-                    "intervention in significant automated decisions."
+                    " " + self._tbc(
+                        "confirm whether individuals can request human review "
+                        "of these decisions - this is generally required for "
+                        "significant automated decisions under Article 22"
+                    )
                 )
 
             if self.auto_decision_consequences:
                 automated_section += (
-                    f"\n\n**Effect on you:** {self.auto_decision_consequences}"
+                    f"\n\n**What this means for you:** {self.auto_decision_consequences}"
                 )
             else:
                 automated_section += (
-                    "\n\nThe practical consequences of these decisions for "
-                    "individuals have not been described in the information "
-                    "supplied to this generator and should be added before "
-                    "publication."
+                    "\n\n**What this means for you:** "
+                    + self._tbc("describe the practical effect of these "
+                                 "decisions on individuals")
                 )
 
             ai_sections.append(automated_section)
@@ -1034,56 +1047,53 @@ class PrivacyPolicyGenerator:
             training_details = (
                 self.ai_training_details
                 if self.ai_training_details
-                else "The specific training data and purpose were not specified."
+                else self._tbc("describe what data is used to train AI and why")
             )
             ai_sections.append(
                 "### AI training\n\n"
-                "We have indicated that personal data is used to train or "
-                "improve AI systems.\n\n"
-                f"**Training information supplied:** {training_details}\n\n"
+                "We may use personal data to train or improve AI systems.\n\n"
+                f"**How this data is used:** {training_details}\n\n"
                 "**Data processed:** "
-                + self._sentence_list(
-                    self.ai_data_processed,
-                    "Not specified"
-                )
+                + self._sentence_list(self.ai_data_processed, self._tbc("confirm"))
                 + "\n\n"
-                "**AI provider locations:** "
-                + self._sentence_list(
-                    self.ai_provider_locations,
-                    "Not specified"
-                )
+                "**Where this processing takes place:** "
+                + self._sentence_list(self.ai_provider_locations, self._tbc("confirm"))
                 + "\n\n"
                 + (
-                    "An opt-out from AI training has been indicated as "
-                    "available. Please contact us to exercise this option."
+                    "You can opt out of your data being used for AI "
+                    "training by contacting us."
                     if self.ai_opt_out_available
-                    else
-                    "No AI-training opt-out has been indicated in the "
-                    "information supplied to this generator."
+                    else self._tbc("confirm whether an AI-training opt-out is offered")
                 )
             )
 
-        if self.ai_provider_locations:
+        if self.ai_provider_locations or self.ai_provider_location_unconfirmed:
+            location_lines = list(self.ai_provider_locations)
+            if self.ai_provider_location_unconfirmed:
+                location_lines.append(
+                    "Some AI tools we use - this has not yet been "
+                    "confirmed and will be updated once we've checked with "
+                    "each provider"
+                )
             ai_sections.append(
-                "### AI service provider locations\n\n"
-                "The AI providers identified in the information supplied to "
-                "us are located in: "
-                + self._sentence_list(self.ai_provider_locations)
-                + "."
+                "### Where AI processing takes place\n\n"
+                "The AI tools we use process data in the following "
+                "locations:\n\n"
+                + self._bullets(location_lines)
             )
 
         if self.ai_data_processed:
             ai_sections.append(
                 "### Information processed by AI\n\n"
-                "The categories of information identified as being processed "
-                "by AI are:\n\n"
+                "The following categories of information may be processed "
+                "by AI:\n\n"
                 + self._bullets(self.ai_data_processed)
             )
 
         if not ai_sections:
             ai_sections.append(
-                "No specific AI processing has been selected in the "
-                "information supplied to this generator."
+                "We do not currently use AI to process personal information. "
+                "If this changes, we will update this policy."
             )
 
         ai_provisions = "\n\n".join(ai_sections)
@@ -1097,153 +1107,144 @@ class PrivacyPolicyGenerator:
                 + self._bullets(self.shared_with_categories)
             )
             if self.shared_data_description:
-                sharing_text += (
-                    f"\n\n{self.shared_data_description}"
-                )
+                sharing_text += f"\n\n{self.shared_data_description}"
             if self.processor_contracts:
                 sharing_text += (
-                    "\n\nWe have indicated that written contracts are in "
-                    "place with our data processors."
+                    "\n\nWhere third parties process personal data on our "
+                    "behalf as processors, we have written contracts in "
+                    "place with them in line with Article 28 of the UK GDPR."
                 )
             else:
                 sharing_text += (
-                    "\n\nThe questionnaire does not confirm that written "
-                    "processor contracts are in place."
+                    "\n\n" + self._tbc(
+                        "confirm that Article 28 processor contracts are in "
+                        "place with these third parties"
+                    )
                 )
         else:
             sharing_text = (
-                "No routine third-party sharing categories have been "
-                "selected in the information supplied to this generator. "
-                "Information may nevertheless need to be disclosed where "
-                "required by law."
+                "We do not routinely share personal information with third "
+                "parties. We may still need to disclose information where "
+                "required by law, for example to a regulator or law "
+                "enforcement body."
             )
 
         # ---------------- INTERNATIONAL TRANSFERS ----------------
         if self.international_transfers and self.transfer_countries:
             transfers_text = (
-                "The information supplied indicates that personal data may "
-                "be transferred to or processed in the following countries:\n\n"
+                "Personal data may be transferred to, or processed in, the "
+                "following countries outside the UK:\n\n"
                 + self._bullets(self.transfer_countries)
             )
             if self.transfer_safeguards:
                 transfers_text += (
-                    "\n\nThe safeguards selected for these transfers are:\n\n"
+                    "\n\nWhere we transfer personal data outside the UK, we "
+                    "rely on the following safeguards, in accordance with "
+                    "Chapter 5 of the UK GDPR:\n\n"
                     + self._bullets(self.transfer_safeguards)
                 )
             else:
                 transfers_text += (
-                    "\n\nNo specific international-transfer safeguard was "
-                    "selected in the questionnaire. The business should "
-                    "confirm the appropriate transfer mechanism before "
-                    "publishing this notice."
+                    "\n\n" + self._tbc(
+                        "confirm the transfer safeguard used (e.g. UK "
+                        "International Data Transfer Agreement, adequacy "
+                        "regulations) - see the ICO's guidance on "
+                        "international transfers"
+                    )
                 )
         else:
             transfers_text = (
-                "No international transfer destinations were selected in "
-                "the information supplied to this generator."
+                "We do not currently transfer personal data outside the UK."
             )
 
         # ---------------- RETENTION ----------------
         if self.retention_periods:
             retention_text = (
-                "The retention periods supplied for personal information are:\n\n"
+                "We retain personal information for the following periods:\n\n"
                 + self._bullets(self.retention_periods)
-                + "\n\nInformation should be securely deleted or anonymised "
-                "when it is no longer required, subject to any legal or "
-                "regulatory retention requirements."
+                + "\n\nWhen information is no longer needed, we securely "
+                "delete or anonymise it, subject to any legal or regulatory "
+                "requirement to keep it for longer."
             )
         else:
-            retention_text = (
-                "Specific retention periods have not been supplied. The "
-                "business should confirm how long each category of personal "
-                "information is retained before publishing this notice."
+            retention_text = self._tbc(
+                "confirm how long each category of personal information is "
+                "retained, and why"
             )
 
         # ---------------- MARKETING ----------------
         if self.uses_marketing:
             marketing_text = (
-                "We send marketing communications using the following methods:\n\n"
-                + self._bullets(self.marketing_methods,
-                                "- Marketing method not specified")
+                "We send marketing communications using the following "
+                "methods:\n\n"
+                + self._bullets(self.marketing_methods, "- " + self._tbc("confirm method"))
             )
             if self.marketing_consent:
                 marketing_text += (
-                    "\n\nThe questionnaire indicates that explicit consent "
-                    "is obtained before marketing communications are sent."
+                    "\n\nWe obtain your consent before sending marketing "
+                    "communications, in line with the Privacy and "
+                    "Electronic Communications Regulations (PECR)."
                 )
             else:
                 marketing_text += (
-                    "\n\nThe questionnaire does not indicate that explicit "
-                    "consent is obtained before every marketing communication. "
-                    "The applicable lawful basis and PECR requirements should "
-                    "be checked for the marketing activity concerned."
+                    "\n\n" + self._tbc(
+                        "confirm the lawful basis and PECR consent position "
+                        "for this marketing activity"
+                    )
                 )
             marketing_text += (
                 "\n\nYou can opt out of marketing communications at any "
-                "time using the unsubscribe mechanism provided or by "
-                "contacting us."
+                "time using the unsubscribe link provided or by contacting us."
             )
         else:
-            marketing_text = (
-                "The questionnaire indicates that the business does not "
-                "send marketing communications."
-            )
+            marketing_text = "We do not send marketing communications."
 
         # ---------------- COOKIES / ANALYTICS ----------------
         if self.uses_cookies:
             cookies_text = (
                 "Our website uses the following types of cookies:\n\n"
-                + self._bullets(
-                    self.cookie_types,
-                    "- Cookie types not specified"
-                )
+                + self._bullets(self.cookie_types, "- " + self._tbc("confirm cookie types"))
             )
             cookies_text += (
-                "\n\nWe will provide appropriate information and, where "
-                "required, obtain consent before using non-essential cookies."
+                "\n\nIn line with PECR and ICO guidance on cookies, we will "
+                "provide clear information and, where required, obtain your "
+                "consent before setting non-essential cookies."
             )
         else:
-            cookies_text = (
-                "The questionnaire indicates that the website does not use "
-                "cookies."
-            )
+            cookies_text = "Our website does not use cookies."
 
         if self.uses_analytics:
             cookies_text += (
                 "\n\n**Analytics**\n\n"
-                "We use website analytics for the following purposes or "
-                "measurements:\n\n"
-                + self._bullets(
-                    self.analytics_types,
-                    "- Analytics details not specified"
-                )
+                "We use website analytics to measure and understand:\n\n"
+                + self._bullets(self.analytics_types, "- " + self._tbc("confirm analytics used"))
             )
 
         # ---------------- LEGAL BASIS ----------------
         if self.purposes and all(p in self.purpose_lawful_basis for p in self.purposes):
             legal_basis_text = (
-                "The lawful basis relied on for each purpose is set out in "
-                "Section 4 above, alongside the purpose it relates to."
+                "The lawful basis we rely on under Article 6 of the UK GDPR "
+                "for each processing purpose is set out alongside that "
+                "purpose in Section 4 above."
             )
         elif self.purpose_lawful_basis:
             legal_basis_text = (
-                "The lawful basis for most processing purposes is set out in "
-                "Section 4 above. Any purpose shown there without a lawful "
-                "basis should be confirmed before publication."
+                "The lawful basis for most processing purposes is set out "
+                "in Section 4 above. " + self._tbc(
+                    "confirm the lawful basis for any purpose shown there "
+                    "without one"
+                )
             )
         else:
-            legal_basis_text = (
-                "The questionnaire has not mapped each individual processing "
-                "activity to a specific lawful basis. Before publication, the "
-                "business should confirm the appropriate Article 6 lawful basis "
-                "for each purpose listed above."
+            legal_basis_text = self._tbc(
+                "confirm the Article 6 UK GDPR lawful basis for each "
+                "purpose listed in Section 4"
             )
 
         if self.uses_sensitive_data:
             legal_basis_text += (
-                "\n\nFor special category data, the Article 9 condition "
-                "supplied is:\n\n"
-                + (self.sensitive_data_basis or "Not specified")
+                "\n\nFor special category data, our Article 9 condition is:\n\n"
+                + (self.sensitive_data_basis or self._tbc("confirm the Article 9 condition"))
                 + "."
             )
 
@@ -1258,16 +1259,16 @@ class PrivacyPolicyGenerator:
 
 ## 1. Introduction
 
-{self.company_name} ("we", "our" or "us") is responsible for the
-personal information we process in connection with our website and services.
+{self.company_name} ("we", "our" or "us") is committed to protecting and
+respecting your privacy. This policy explains how we collect, use, share and
+protect your personal information, and sets out your rights, in accordance
+with the UK General Data Protection Regulation (UK GDPR), the Data
+Protection Act 2018 and, where relevant, the Privacy and Electronic
+Communications Regulations (PECR).
 
-This Privacy Policy explains what personal information we have identified as
-being collected, why it is used, how it may be shared, how long it is retained,
-and how AI is used where applicable.
-
-This policy is intended to provide clear and accessible privacy information.
-It should be reviewed against the business's actual processing activities
-before publication.
+Sections of this policy marked **[TO CONFIRM]** have not yet been completed
+and must be filled in, and this policy reviewed by a qualified professional,
+before it is published.
 
 ## 2. Who We Are
 
@@ -1319,60 +1320,62 @@ before publication.
 
 ## 12. Your Data Protection Rights
 
-Depending on the circumstances and the applicable legal requirements, you may
-have rights including:
+Under the UK GDPR and the Data Protection Act 2018, you have the following
+rights over your personal information:
 
 - the right to be informed about how your personal information is used;
-- the right to request access to personal information;
-- the right to ask for inaccurate information to be corrected;
-- the right to request erasure in certain circumstances;
-- the right to request restriction of processing in certain circumstances;
-- the right to object to certain processing;
-- rights relating to data portability where applicable;
-- the right to withdraw consent where processing relies on consent; and
-- rights relating to automated decision-making where applicable.
+- the right of access to the personal information we hold about you;
+- the right to rectification of inaccurate information;
+- the right to erasure in certain circumstances;
+- the right to restrict processing in certain circumstances;
+- the right to object to certain processing, including direct marketing;
+- the right to data portability, where applicable;
+- the right to withdraw consent at any time, where we rely on consent; and
+- rights relating to automated decision-making and profiling, where applicable.
 
-To exercise your rights, contact us at **{self.email}**.
+To exercise any of these rights, contact us at **{self.email}**.
 
 ## 13. Data Security
 
-We take appropriate technical and organisational measures to protect personal
-information against unauthorised or unlawful processing and against accidental
-loss, destruction or damage.
+We take appropriate technical and organisational measures, as required by
+the UK GDPR, to protect personal information against unauthorised or
+unlawful processing and against accidental loss, destruction or damage.
 
-The specific security measures applicable to this business have not been
-collected in detail by this questionnaire and should be reviewed before
-publication.
+{self._tbc("describe the specific security measures in place, e.g. encryption, access controls, staff training")}
 
 ## 14. Data Processors
 
-Where we use processors to process personal information on our behalf, we are
-responsible for ensuring that the relevant contractual and data protection
-requirements are addressed.
+Where third parties process personal information on our behalf, we remain
+responsible for that data and ensure appropriate contractual and data
+protection safeguards are in place, in line with Article 28 of the UK GDPR.
 
-The questionnaire indicates that processor contracts are
-{"confirmed" if self.processor_contracts else "not confirmed"}.
+Processor contracts are currently {"in place" if self.processor_contracts else self._tbc("confirm processor contracts are in place")}.
 
 ## 15. Changes to This Privacy Policy
 
-We may update this Privacy Policy when our processing activities, technology,
-services or legal obligations change. We should update the notice before
-introducing new uses of personal information where required.
+We may update this policy from time to time to reflect changes in our
+processing activities, technology or legal obligations. We will update the
+"Last Updated" date above whenever we make changes, and encourage you to
+review this policy periodically.
 
 ## 16. Complaints
 
-If you have concerns about how we use your personal information, please contact
-us first so that we can try to resolve the issue.
+If you have concerns about how we handle your personal information, please
+contact us first so we can try to resolve the issue directly.
 
-You also have the right to complain to the Information Commissioner's Office
-(ICO) where applicable.
+You also have the right to lodge a complaint with the UK's independent
+supervisory authority for data protection:
 
-ICO website: https://ico.org.uk
+**Information Commissioner's Office (ICO)**
+
+**Website:** https://ico.org.uk
+
+**Helpline:** 0303 123 1113
 
 ## 17. Contact Us
 
-If you have questions about this Privacy Policy or how your personal
-information is processed, please contact us:
+If you have questions about this policy or how we process your personal
+information, please contact us:
 
 **Email:** {self.email}
 
@@ -1384,18 +1387,12 @@ information is processed, please contact us:
 
 ### Important review note
 
-This privacy policy has been generated from the information supplied through
-the questionnaire. It is designed to help the business describe its actual
-processing activities clearly, but it is not a determination that the
-business is legally compliant.
-
-The business should check that every statement is factually correct, confirm
-the lawful basis for each processing activity, verify international transfer
-arrangements, and update the policy whenever its processing activities change.
-
-Where AI is used, the business should also check that the notice accurately
-explains the AI processing and, where relevant, automated decision-making,
-profiling, training and the effect of those activities on individuals.
+This is a **draft** privacy policy generated from the answers provided.
+Every statement above should be checked against what the business actually
+does, and any section marked **[TO CONFIRM]** must be completed. This draft
+is not a determination of legal compliance, and should be reviewed by a
+qualified solicitor or data protection professional - and updated whenever
+processing activities change - before it is published.
 """
 
         return policy
@@ -1666,8 +1663,16 @@ Marketing Consent: {'Yes' if self.marketing_consent else 'No'}
         self.clear_screen()
         self.print_header("PRIVACY POLICY GENERATOR")
         
-        print("This tool creates a complete UK GDPR-compliant privacy policy.")
+        print("This tool builds a DRAFT UK GDPR privacy policy from your answers.")
         print("ALL your answers will be included in the final document.\n")
+        print("⚠️  IMPORTANT:")
+        print("  • This produces a starting draft, not a finished, compliant policy.")
+        print("  • Anything you leave blank will be marked [TO CONFIRM] in the")
+        print("    output rather than guessed at.")
+        print("  • The generated .docx/.txt/.md files are yours to edit afterwards -")
+        print("    nothing here is locked.")
+        print("  • Have a solicitor or data protection professional review the")
+        print("    final policy before you publish it.\n")
         print("Press Enter to begin...")
         input()
         
