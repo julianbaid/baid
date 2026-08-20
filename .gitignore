@@ -1,0 +1,5 @@
+generated_policies/
+*.docx
+__pycache__/
+*.pyc
+.DS_Store
