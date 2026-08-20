@@ -170,7 +170,7 @@ if 'policy_content' not in st.session_state:
 st.title("🔒 UK GDPR Privacy Policy Generator")
 st.markdown("Generate a draft UK GDPR privacy policy with AI usage covered.")
 st.info(
-    "⚠️ This produces a **draft**. Anything left blank is marked "
+    "This produces a **draft**. Anything left blank is marked "
     "**[TO CONFIRM]** in the output rather than guessed at. Have a "
     "solicitor or data protection professional review the final policy "
     "before you publish it.",
