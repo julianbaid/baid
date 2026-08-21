@@ -1,0 +1,16 @@
+name: Keep Streamlit App Awake
+
+on:
+  schedule:
+    # Runs every hour, every day
+    - cron: '0 * * * *'
+  # Allows you to manually trigger the wake-up from GitHub Actions tab
+  workflow_dispatch: 
+
+jobs:
+  ping_app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send ping request to Streamlit app
+        run: |
+          curl -sL -w "%{http_code}" "https://streamlit.app" -o /dev/null
