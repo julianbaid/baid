@@ -2,9 +2,7 @@ name: Keep Streamlit App Awake
 
 on:
   schedule:
-    # Runs every hour, every day
     - cron: '0 * * * *'
-  # Allows you to manually trigger the wake-up from GitHub Actions tab
   workflow_dispatch: 
 
 jobs:
@@ -13,4 +11,6 @@ jobs:
     steps:
       - name: Send ping request to Streamlit app
         run: |
-          curl -sL -w "%{http_code}" "https://jemkbdnsnauaqjx5c75tx5.streamlit.app/" -o /dev/null
+          # Removed "-L" (don't follow redirects) and added embed parameters
+          curl -s -w "%{http_code}" "https://jemkbdnsnauaqjx5c75tx5.streamlit.app/" -o /dev/null
+          
